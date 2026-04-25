@@ -1,0 +1,27 @@
+name: Daily Briefing Bot
+
+on:
+  schedule:
+    # 墨西哥城 (CST) 08:00 AM 对应 UTC 14:00
+    - cron: '0 14 * * *'
+  workflow_dispatch: # 允许您手动点击按钮进行测试
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: python-setup@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: pip install requests pytz
+
+      - name: Run Script
+        env:
+          LARK_WEBHOOK: ${{ secrets.LARK_WEBHOOK }}
+        run: python daily_report.py
