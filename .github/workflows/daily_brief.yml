@@ -19,7 +19,7 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install requests pytz yfinance
+        run: pip install requests pytz yfinance feedparser
 
       - name: Run Script
         env:
