@@ -2,19 +2,19 @@ name: Daily Briefing Bot
 
 on:
   schedule:
-    # 墨西哥城 (CST) 08:00 AM 对应 UTC 14:00
+    # 墨西哥城 (CDMX) 08:00 AM 对应 UTC 14:00
     - cron: '0 14 * * *'
-  workflow_dispatch: # 允许您手动点击按钮进行测试
+  workflow_dispatch: # 允许手动触发测试
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: uses: actions/setup-python@v5
+        uses: actions/setup-python@v5
         with:
           python-version: '3.9'
 
