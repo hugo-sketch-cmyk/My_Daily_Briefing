@@ -6,10 +6,10 @@ from datetime import datetime
 # 1. 采集金融数据 (保持不变)
 def get_market_data():
     tickers = {
-        "美元/离岸人民币": "USDCNH=X",
-        "港股恒生指数": "^HSI",
+        "美元/人民币": "USDCNY=X",
+        "港股恒指": "^HSI",
         "上证指数": "000001.SS",
-        "纳指100 (AI核心)": "^NDX",
+        "纳指100": "^NDX",
         "现货黄金": "GC=F",
         "布伦特原油": "BZ=F"
     }
@@ -28,38 +28,39 @@ def get_market_data():
         except: continue
     return "\n".join(market_info) if market_info else "金融数据获取延迟"
 
-# 2. 修复后的 Gemini 调用逻辑
+# 2. 终极兼容版 Gemini 调用逻辑
 def get_llm_summary(market_data):
     api_key = os.getenv("LLM_API_KEY")
     
-    # ✅ 尝试使用最标准的 v1 接口和 gemini-1.5-flash 模型
-    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
+    # 尝试的模型列表，按优先顺序排序
+    model_list = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]
     
     headers = {"Content-Type": "application/json"}
-    prompt = f"你是一名专业顾问。分析以下数据并提供简报，重点关注汇率、AI、生物医疗动态：\n{market_data}\n请用中文回答。"
-    
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}]
-    }
-    
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=60)
-        
-        # 如果 v1 接口报 404，尝试使用 v1beta 备用接口
-        if response.status_code == 404:
-            url_beta = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
-            response = requests.post(url_beta, json=payload, headers=headers, timeout=60)
+    prompt = f"你是一名专业顾问。分析以下数据并提供简报，重点关注汇率、AI、生物医疗动态，使用中文：\n{market_data}"
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
 
-        if response.status_code == 200:
-            result = response.json()
-            return result['candidates'][0]['content']['parts'][0]['text']
-        else:
-            # ✅ 如果还是报错，打印出具体的错误信息到飞书，方便我们排查
-            return f"【Gemini 报错】状态码：{response.status_code}\n详情：{response.text[:100]}"
-    except Exception as e:
-        return f"【系统提示】连接失败: {str(e)[:50]}"
+    # 循环尝试不同的模型，直到有一个成功
+    for model in model_list:
+        # 使用 v1beta 接口，这是目前最稳健的路径
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        try:
+            print(f"正在尝试请求模型: {model}...")
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                result = response.json()
+                print(f"✅ {model} 请求成功！")
+                return result['candidates'][0]['content']['parts'][0]['text']
+            else:
+                print(f"❌ {model} 失败，状态码: {response.status_code}")
+                continue # 尝试下一个模型
+        except Exception as e:
+            print(f"连接 {model} 出错: {str(e)}")
+            continue
 
-# 3. 发送紫色高级感互动卡片
+    return "【系统提示】所有 Gemini 模型均尝试失败，请检查 API Key 权限或区域可用性。"
+
+# 3. 发送飞书卡片 (保持不变)
 def send_feishu_card(summary_text, market_data):
     webhook_url = os.getenv("FEISHU_WEBHOOK_URL")
     card_payload = {
@@ -73,7 +74,7 @@ def send_feishu_card(summary_text, market_data):
                 {"tag": "div", "text": {"tag": "lark_md", "content": f"**📈 全球关键指标**\n{market_data}"}},
                 {"tag": "hr"},
                 {"tag": "div", "text": {"tag": "lark_md", "content": f"**💡 深度洞察与行业动态**\n{summary_text}"}},
-                {"tag": "note", "elements": [{"tag": "plain_text", "content": "📍 墨西哥城 08:00 | 由 Google Gemini 驱动"}]}
+                {"tag": "note", "elements": [{"tag": "plain_text", "content": "📍 墨西哥城 08:00 | 智能顾问系统"}]}
             ]
         }
     }
