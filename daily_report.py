@@ -98,4 +98,15 @@ def send_feishu_card(summary_text, market_data):
 if __name__ == "__main__":
     m_data = get_market_data()
     summary = get_llm_summary(m_data)
+    
+    # 1. 发送飞书卡片 (已有的)
     send_feishu_card(summary, m_data)
+    
+    # 2. 生成本地笔记 (这是生成 Notes 文件夹的关键！)
+    save_for_obsidian(m_data, summary)
+    
+    # 3. 归档到飞书多维表格
+    try:
+        archive_to_bitable(m_data, summary)
+    except Exception as e:
+        print(f"飞书表格归档跳过或失败: {e}")
