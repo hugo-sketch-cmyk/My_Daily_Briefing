@@ -3,110 +3,98 @@ import requests
 import yfinance as yf
 from datetime import datetime
 
-# 1. 采集全维度金融数据 (包含全球主要市场与汇率)
+# 1. 获取金融数据
 def get_market_data():
     tickers = {
-        "美元/离岸人民币": "USDCNH=X",
+        "美元/人民币": "USDCNY=X",
         "墨西哥比索/美元": "MXN=X",
-        "港股恒生指数": "^HSI",
+        "港股恒指": "^HSI",
         "上证指数": "000001.SS",
-        "纳指100(AI核心)": "^NDX",
-        "墨西哥MXX指数": "^MXX",
-        "现货黄金": "GC=F",
-        "布伦特原油": "BZ=F"
+        "纳指100": "^NDX",
+        "现货黄金": "GC=F"
     }
-    market_info = []
-    for name, symbol in tickers.items():
+    info = []
+    for n, s in tickers.items():
         try:
-            ticker = yf.Ticker(symbol)
-            data = ticker.history(period="3d")
-            if not data.empty:
-                current = data['Close'].iloc[-1]
-                prev = data['Close'].iloc[-2]
-                change = ((current - prev) / prev) * 100
-                arrow = "🔺" if change > 0 else "🔻"
-                fmt = ".4f" if "人民币" in name or "比索" in name else ".2f"
-                market_info.append(f"{name}: {current:{fmt}} ({arrow}{change:.2f}%)")
+            d = yf.Ticker(s).history(period="3d")
+            c = d['Close'].iloc[-1]
+            p = d['Close'].iloc[-2]
+            ch = ((c-p)/p)*100
+            fmt = ".4f" if "人民币" in n or "比索" in n else ".2f"
+            info.append(f"{n}: {c:{fmt}} ({'+' if ch>0 else ''}{ch:.2f}%)")
         except: continue
-    return "\n".join(market_info) if market_info else "金融数据获取延迟"
+    return "\n".join(info)
 
-# 2. 调用 DeepSeek 进行全维度深度总结 (宏观 + 行业)
+# 2. 调用 DeepSeek 获取摘要
 def get_llm_summary(market_data):
     api_key = os.getenv("LLM_API_KEY")
     url = "https://api.deepseek.com/chat/completions"
-    
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    
-    # 综合版深度 Prompt
-    prompt = f"""
-    你是一名顶级专业顾问。请分析以下数据并撰写一份全维度简报：
-    
-    [今日市场指标]:
-    {market_data}
-    
-    [情报监控要求]:
-    1. 宏观政经：分析全球增长、利率决策及重要地缘政治动态（重点关注美、中、墨）。
-    2. 上游动态：监控 Illumina, MGI(华大智造), 以及 **真迈生物 (Zhenmai)** 的技术与商业动作。
-    3. 中游/生信：分析 **GenePlanet**, **Gene Solutions**, **SOPHIA GENETICS** 的全球布局及 **MSK** 的科研突破。
-    4. 行业技术：总结当日 AI 科技（算力/模型）与 NGS（测序技术/临床准入）的核心进展。
-    5. 监管预警：关注 FDA, NMPA 及墨西哥 **COFEPRIS** 的政策变动。
-    
-    [格式要求]:
-    - 使用 Markdown 标题区分板块。
-    - 每一条信息必须包含“事实+潜在影响分析”。
-    - 针对墨西哥城(Mexico City)背景给出一务务实建议。
-    - 风格严谨、客观、逻辑严密。
-    """
-    
+    prompt = f"你是一名顶级顾问。请分析今日金融数据并提供AI与生物医疗行业简报，重点关注真迈、GenePlanet、SOPHIA、MSK动态：\n{market_data}"
     payload = {
         "model": "deepseek-chat",
-        "messages": [
-            {"role": "system", "content": "你是一名具备全球视野的商业策略与生物技术顾问。"},
-            {"role": "user", "content": prompt}
-        ]
+        "messages": [{"role": "user", "content": prompt}]
     }
-    
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=60)
-        if response.status_code == 200:
-            return response.json()['choices'][0]['message']['content']
-        else:
-            return f"【DeepSeek 报告生成失败】状态码：{response.status_code}"
-    except Exception as e:
-        return f"【系统告警】LLM 连接中断: {str(e)[:50]}"
+        r = requests.post(url, json=payload, headers=headers, timeout=60)
+        return r.json()['choices'][0]['message']['content']
+    except: return "摘要生成失败，请检查网络或API额度。"
 
-# 3. 发送紫色高级互动卡片
-def send_feishu_card(summary_text, market_data):
-    webhook_url = os.getenv("FEISHU_WEBHOOK_URL")
-    card_payload = {
+# 3. 发送飞书卡片
+def send_feishu_card(summary, market_data):
+    webhook = os.getenv("FEISHU_WEBHOOK_URL")
+    card = {
         "msg_type": "interactive",
         "card": {
-            "header": {
-                "title": {"tag": "plain_text", "content": f"💎 首席顾问简报 | 全球综述 {datetime.now().strftime('%m-%d')}"},
-                "template": "purple"
-            },
+            "header": {"title": {"tag": "plain_text", "content": "📊 首席顾问简报 | 自动归档系统"}, "template": "purple"},
             "elements": [
-                {"tag": "div", "text": {"tag": "lark_md", "content": f"**📊 全球金融与汇率快报**\n{market_data}"}},
+                {"tag": "div", "text": {"tag": "lark_md", "content": f"**关键指标**\n{market_data}"}},
                 {"tag": "hr"},
-                {"tag": "div", "text": {"tag": "lark_md", "content": summary_text}},
-                {"tag": "note", "elements": [{"tag": "plain_text", "content": "📍 墨西哥城 08:00 | 决策支持系统 3.0 正式版"}]}
+                {"tag": "div", "text": {"tag": "lark_md", "content": summary}}
             ]
         }
     }
-    requests.post(webhook_url, json=card_payload)
+    requests.post(webhook, json=card)
 
+# 4. 【核心修复】保存为 Obsidian 笔记 (Markdown)
+def save_for_obsidian(market_data, summary):
+    folder = "Notes"
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    date_str = datetime.now().strftime('%Y-%m-%d')
+    file_path = f"{folder}/{date_str}.md"
+    content = f"---\ntags: #briefing #consultant\ndate: {date_str}\n---\n# 📅 每日简报 {date_str}\n\n## 📈 金融指标\n{market_data}\n\n## 💡 深度洞察\n{summary}"
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    print(f"✅ 笔记已生成: {file_path}")
+
+# 5. 获取飞书写入权限
+def get_tenant_access_token():
+    url = "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal"
+    payload = {"app_id": os.getenv("FEISHU_APP_ID"), "app_secret": os.getenv("FEISHU_APP_SECRET")}
+    r = requests.post(url, json=payload)
+    return r.json().get("tenant_access_token")
+
+# 6. 归档到飞书多维表格
+def archive_to_bitable(market_data, summary):
+    token = get_tenant_access_token()
+    app_token = os.getenv("FEISHU_APP_TOKEN")
+    table_id = "tblU9VFCmff9iznw" # 已经帮你填好了
+    url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/records"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    payload = {"fields": {"日期": int(datetime.now().timestamp() * 1000), "金融指标": market_data, "深度洞察": summary}}
+    requests.post(url, json=payload, headers=headers)
+
+# --- 执行区 ---
 if __name__ == "__main__":
-    m_data = get_market_data()
-    summary = get_llm_summary(m_data)
+    m = get_market_data()
+    s = get_llm_summary(m)
     
-    # 1. 发送飞书卡片 (已有的)
-    send_feishu_card(summary, m_data)
+    # 执行所有任务
+    send_feishu_card(s, m)    # 发飞书
+    save_for_obsidian(m, s)   # 生成本地文件（这行不再报错了！）
     
-    # 2. 生成本地笔记 (这是生成 Notes 文件夹的关键！)
-    save_for_obsidian(m_data, summary)
-    
-    # 3. 归档到飞书多维表格
     try:
-        archive_to_bitable(m_data, summary)
+        archive_to_bitable(m, s) # 存入多维表格
     except Exception as e:
-        print(f"飞书表格归档跳过或失败: {e}")
+        print(f"表格归档出错: {e}")
