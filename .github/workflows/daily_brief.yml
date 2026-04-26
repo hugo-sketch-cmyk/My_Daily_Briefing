@@ -23,5 +23,7 @@ jobs:
 
       - name: Run Script
         env:
-          LARK_WEBHOOK: ${{ secrets.LARK_WEBHOOK }}
+          # 这一块非常重要！这是把仓库里的秘密（Secrets）传给代码看
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
         run: python daily_report.py
