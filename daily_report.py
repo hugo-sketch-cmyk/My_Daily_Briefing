@@ -3,7 +3,7 @@ import requests
 import yfinance as yf
 from datetime import datetime
 
-# 1. 采集金融数据 (保持不变)
+# 1. 采集金融数据 (保持不变，已验证稳定)
 def get_market_data():
     tickers = {
         "美元/人民币": "USDCNY=X",
@@ -28,39 +28,40 @@ def get_market_data():
         except: continue
     return "\n".join(market_info) if market_info else "金融数据获取延迟"
 
-# 2. 终极兼容版 Gemini 调用逻辑
+# 2. 调用 DeepSeek 进行深度总结
 def get_llm_summary(market_data):
     api_key = os.getenv("LLM_API_KEY")
     
-    # 尝试的模型列表，按优先顺序排序
-    model_list = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-pro"]
+    # ✅ DeepSeek 标准 API 地址
+    url = "https://api.deepseek.com/chat/completions"
     
-    headers = {"Content-Type": "application/json"}
-    prompt = f"你是一名专业顾问。分析以下数据并提供简报，重点关注汇率、AI、生物医疗动态，使用中文：\n{market_data}"
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    prompt = f"你是一名专业顾问。请分析今日数据并撰写简报，重点关注汇率、AI、生物医疗（NGS）前沿。要求：逻辑严密，风格严谨，使用中文。\n[今日数据]:\n{market_data}"
+    
+    payload = {
+        "model": "deepseek-chat", # 或者使用 deepseek-reasoner 获得更强的逻辑推理
+        "messages": [
+            {"role": "system", "content": "你是一名顶尖的专业决策支持助手。"},
+            {"role": "user", "content": prompt}
+        ],
+        "stream": False
+    }
+    
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=60)
+        if response.status_code == 200:
+            result = response.json()
+            return result['choices'][0]['message']['content']
+        else:
+            return f"【DeepSeek 报错】状态码：{response.status_code}\n详情：{response.text[:100]}"
+    except Exception as e:
+        return f"【系统提示】连接 DeepSeek 失败: {str(e)[:50]}"
 
-    # 循环尝试不同的模型，直到有一个成功
-    for model in model_list:
-        # 使用 v1beta 接口，这是目前最稳健的路径
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
-        try:
-            print(f"正在尝试请求模型: {model}...")
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
-            
-            if response.status_code == 200:
-                result = response.json()
-                print(f"✅ {model} 请求成功！")
-                return result['candidates'][0]['content']['parts'][0]['text']
-            else:
-                print(f"❌ {model} 失败，状态码: {response.status_code}")
-                continue # 尝试下一个模型
-        except Exception as e:
-            print(f"连接 {model} 出错: {str(e)}")
-            continue
-
-    return "【系统提示】所有 Gemini 模型均尝试失败，请检查 API Key 权限或区域可用性。"
-
-# 3. 发送飞书卡片 (保持不变)
+# 3. 发送飞书卡片 (保持紫色高感设计)
 def send_feishu_card(summary_text, market_data):
     webhook_url = os.getenv("FEISHU_WEBHOOK_URL")
     card_payload = {
@@ -74,7 +75,7 @@ def send_feishu_card(summary_text, market_data):
                 {"tag": "div", "text": {"tag": "lark_md", "content": f"**📈 全球关键指标**\n{market_data}"}},
                 {"tag": "hr"},
                 {"tag": "div", "text": {"tag": "lark_md", "content": f"**💡 深度洞察与行业动态**\n{summary_text}"}},
-                {"tag": "note", "elements": [{"tag": "plain_text", "content": "📍 墨西哥城 08:00 | 智能顾问系统"}]}
+                {"tag": "note", "elements": [{"tag": "plain_text", "content": "📍 墨西哥城 08:00 | 由 DeepSeek AI 提供智能驱动"}]}
             ]
         }
     }
