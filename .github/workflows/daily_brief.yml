@@ -1,29 +1,38 @@
-name: Daily Briefing Bot
+name: Consultant Daily Briefing
 
 on:
   schedule:
-    # 墨西哥城时间 08:00 (CST) 对应 UTC 14:00
     - cron: '0 14 * * *'
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v3
+      
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
-
+          python-version: '3.10'
+          
       - name: Install dependencies
-        run: pip install requests pytz yfinance feedparser
-
+        run: pip install requests yfinance
+        
       - name: Run Script
         env:
-          # 这一块非常重要！这是把仓库里的秘密（Secrets）传给代码看
-          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_APP_TOKEN: ${{ secrets.FEISHU_APP_TOKEN }}
         run: python daily_report.py
+
+      # ✅ 这一步非常重要！没有这一步，Notes 文件夹就回不来
+      - name: Commit and Push to Repository
+        run: |
+          git config --global user.name "Consultant Bot"
+          git config --global user.email "bot@github.com"
+          git add Notes/*.md || echo "No notes to add"
+          git commit -m "Archive daily briefing: $(date +'%Y-%m-%d')" || exit 0
+          git push
