@@ -6,10 +6,10 @@ from datetime import datetime
 # 1. 采集全维度金融数据
 def get_market_data():
     tickers = {
-        "美元/人民币": "USDCNY=X",
-        "港股恒指": "^HSI",
+        "美元/离岸人民币": "USDCNH=X",
+        "港股恒生指数": "^HSI",
         "上证指数": "000001.SS",
-        "纳指100(AI核心)": "^NDX",
+        "纳指100 (AI核心)": "^NDX",
         "现货黄金": "GC=F",
         "布伦特原油": "BZ=F"
     }
@@ -29,52 +29,61 @@ def get_market_data():
             continue
     return "\n".join(market_info) if market_info else "金融数据获取延迟"
 
-# 2. 调用 LLM 进行深度行业总结
+# 2. 调用 Google Gemini 进行深度总结
 def get_llm_summary(market_data):
     api_key = os.getenv("LLM_API_KEY")
-    # 如果您的 API 提供商不同，请修改此 URL
-    url = "https://api.openai.com/v1/chat/completions" 
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    # ✅ 这是 Gemini 的专用接口地址
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    
+    headers = {"Content-Type": "application/json"}
     
     prompt = f"""
-    你是一名专业顾问。请分析今日数据并提供简报：
+    你是一名专业顾问。请分析今日数据并撰写简报：
     [今日指标]:
     {market_data}
     
     [重点任务]:
-    1. 宏观：简评汇率波动的潜在影响。
-    2. 科技动态：搜寻并总结一条最新的全球 AI 科技进展。
-    3. 医疗动态：搜寻并总结一条关于生物医药或 NGS（二代测序）的前沿突破。
-    4. 墨西哥评论：给出一条针对当地安全或经贸的简短顾问建议。
+    1. 宏观：简评汇率波动对中资企业的潜在影响。
+    2. AI 科技：总结一条今日全球 AI 领域的重大进展。
+    3. 生物医疗：总结一条关于 NGS 或生物制药的前沿突破。
+    4. 墨西哥视角：给出一个针对当地经贸安全或近岸外包的建议。
     
-    [风格]: 严谨、专业、因果导向。
+    [要求]: 逻辑严密，每条动态需体现“事实+影响”。语言：中文。
     """
+    
+    # ✅ 这是 Gemini 专用的数据格式（和 OpenAI 完全不同）
     payload = {
-        "model": "gpt-3.5-turbo", 
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7
+        "contents": [{
+            "parts": [{"text": prompt}]
+        }]
     }
+    
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
-        return response.json()['choices'][0]['message']['content']
-    except:
-        return "LLM 摘要生成超时，请检查 API 额度。"
+        response = requests.post(url, json=payload, headers=headers, timeout=60)
+        if response.status_code == 200:
+            # ✅ 解析 Gemini 特有的返回结构
+            result = response.json()
+            return result['candidates'][0]['content']['parts'][0]['text']
+        else:
+            return f"【Gemini 错误】状态码：{response.status_code}，请检查 API Key 是否有效。"
+    except Exception as e:
+        return f"【系统提示】连接 Gemini 失败。错误详情: {str(e)[:50]}"
 
-# 3. 发送紫色专业卡片
+# 3. 发送紫色高级感互动卡片
 def send_feishu_card(summary_text, market_data):
     webhook_url = os.getenv("FEISHU_WEBHOOK_URL")
     card_payload = {
         "msg_type": "interactive",
         "card": {
             "header": {
-                "title": {"tag": "plain_text", "content": f"📊 专业顾问 | 每日综合简报 {datetime.now().strftime('%m-%d')}"},
-                "template": "purple" # 紫色代表深度与科技
+                "title": {"tag": "plain_text", "content": f"📊 专业顾问 | 综合决策简报 {datetime.now().strftime('%m-%d')}"},
+                "template": "purple"
             },
             "elements": [
                 {"tag": "div", "text": {"tag": "lark_md", "content": f"**📈 全球关键指标**\n{market_data}"}},
                 {"tag": "hr"},
-                {"tag": "div", "text": {"tag": "lark_md", "content": f"**💡 深度洞察与科技动态**\n{summary_text}"}},
-                {"tag": "note", "elements": [{"tag": "plain_text", "content": "📍 墨西哥城 08:00 | 自动化顾问系统 V3.0"}]}
+                {"tag": "div", "text": {"tag": "lark_md", "content": f"**💡 深度洞察与行业动态**\n{summary_text}"}},
+                {"tag": "note", "elements": [{"tag": "plain_text", "content": "📍 墨西哥城 08:00 | 由 Google Gemini 提供智能驱动"}]}
             ]
         }
     }
