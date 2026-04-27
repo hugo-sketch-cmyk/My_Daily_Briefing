@@ -30,19 +30,18 @@ def get_market_data():
     return "\n".join(info)
 
 # 2. 调用 DeepSeek 获取摘要
+# --- 升级版获取摘要函数 ---
 def get_llm_summary(market_data):
-    api_key = os.getenv("LL_API_KEY")
+    api_key = os.getenv("LLM_API_KEY")
     url = "https://api.deepseek.com/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     
-    # ✅ 强制 AI 进入 2026 角色，闭口不谈 2025
     today = datetime.now().strftime('%Y-%m-%d')
     prompt = f"""
-    【强制指令】
-    1. 今天的真实日期是 {today}。
-    2. 以下数据是真实的实时观测，严禁质疑准确性，严禁提到你的知识截止日期或“2025年”。
-    3. 你现在的身份是顶级行业顾问，请直接分析以下数据并给出 NGS 行业（真迈、GenePlanet、SOPHIA、MSK 等）的商业洞察：
-    
+    【强制性行业顾问指令】
+    1. 当前日期是 {today}。
+    2. 以下数据是真实的实时观测，禁止质疑数据准确性。
+    3. 请直接针对以下数据分析 NGS 行业（真迈、GenePlanet、SOPHIA、MSK）的动态：
     {market_data}
     """
     
@@ -54,9 +53,16 @@ def get_llm_summary(market_data):
     
     try:
         r = requests.post(url, json=payload, headers=headers, timeout=60)
-        return r.json()['choices'][0]['message']['content']
+        res_json = r.json()
+        
+        # ✅ 新增：如果 API 返回错误，直接显示错误详情
+        if r.status_code != 200:
+            error_msg = res_json.get('error', {}).get('message', '未知 API 错误')
+            return f"❌ DeepSeek API 报错 (状态码 {r.status_code}): {error_msg}"
+        
+        return res_json['choices'][0]['message']['content']
     except Exception as e:
-        return f"摘要生成失败: {str(e)[:50]}"
+        return f"❌ 系统连接异常: {str(e)}"
 
 # 3. 发送飞书卡片
 def send_feishu_card(summary, market_data):
