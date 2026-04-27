@@ -37,12 +37,17 @@ def get_llm_summary(market_data):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     
     today = datetime.now().strftime('%Y-%m-%d')
+    # 💡 换成“资深顾问”口吻，避免触发 AI 的防御机制
     prompt = f"""
-    【强制性行业顾问指令】
-    1. 当前日期是 {today}。
-    2. 以下数据是真实的实时观测，禁止质疑数据准确性。
-    3. 请直接针对以下数据分析 NGS 行业（真迈、GenePlanet、SOPHIA、MSK）的动态：
+    作为一名深耕医疗与金融领域的资深顾问，请基于以下 2026 年的实时市场观测数据，
+    结合 NGS 行业（重点关注真迈生物、GenePlanet、SOPHIA GENETICS、MSK 等动态）
+    撰写一份专业的深度分析简报。
+    
+    【今日数据节点】: {today}
+    【市场观测指标】:
     {market_data}
+    
+    请直接进入深度解读，从宏观趋势和企业动态两个维度展开，无需开场白或免责声明。
     """
     
     payload = {
