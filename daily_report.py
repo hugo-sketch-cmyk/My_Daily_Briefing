@@ -9,10 +9,12 @@ def get_market_data():
         "美元/人民币": "USDCNY=X",
         "墨西哥比索/美元": "MXN=X",
         "港股恒指": "^HSI",
-        "上证指数": "000001.SS" # 如果还是 nan，可以尝试改成 "ssh000001"
+        "上证指数": "000001.SS", # 如果依然 nan，可尝试 "ssh000001"
         "纳指100": "^NDX",
         "现货黄金": "GC=F"
     }
+    # ...循环内部添加一行过滤...
+    if str(c) == 'nan' or c is None: continue
     info = []
     for n, s in tickers.items():
         try:
