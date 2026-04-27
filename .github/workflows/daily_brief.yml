@@ -2,7 +2,8 @@ name: Consultant Daily Briefing
 
 on:
   schedule:
-    - cron: '0 14 * * *'
+    # 0 0 代表北京 8:00，0 14 代表墨西哥 8:00
+    - cron: '0 0,14 * * *'
   workflow_dispatch:
 
 jobs:
