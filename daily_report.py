@@ -9,7 +9,7 @@ def get_market_data():
         "美元/人民币": "USDCNY=X",
         "墨西哥比索/美元": "MXN=X",
         "港股恒指": "^HSI",
-        "上证指数": "000001.SS",
+        "上证指数": "000001.SS" # 如果还是 nan，可以尝试改成 "ssh000001"
         "纳指100": "^NDX",
         "现货黄金": "GC=F"
     }
@@ -30,15 +30,22 @@ def get_llm_summary(market_data):
     api_key = os.getenv("LLM_API_KEY")
     url = "https://api.deepseek.com/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    prompt = f"你是一名顶级顾问。请分析今日金融数据并提供AI与生物医疗行业简报，重点关注真迈、GenePlanet、SOPHIA、MSK动态：\n{market_data}"
+    
+    # 💡 这里的关键是告诉它今天就是 2026 年，不许提 2025
+    prompt = f"""
+    【强制指令】
+    1. 今天的日期是 {datetime.now().strftime('%Y-%m-%d')}。
+    2. 以下数据是【绝对真实】的实时市场观测，不许质疑其准确性，不许提到你的知识截止日期。
+    3. 你现在的身份是顶级行业顾问，请直接分析以下数据并给出 NGS 行业（真迈、GenePlanet 等）的商业洞察：
+    
+    {market_data}
+    """
+    
     payload = {
         "model": "deepseek-chat",
-        "messages": [{"role": "user", "content": prompt}]
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.3 # 调低随机性，让它更严谨
     }
-    try:
-        r = requests.post(url, json=payload, headers=headers, timeout=60)
-        return r.json()['choices'][0]['message']['content']
-    except: return "摘要生成失败，请检查网络或API额度。"
 
 # 3. 发送飞书卡片
 def send_feishu_card(summary, market_data):
