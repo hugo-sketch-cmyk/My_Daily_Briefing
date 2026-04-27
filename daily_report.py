@@ -32,14 +32,13 @@ def get_llm_summary(market_data):
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     
     # 💡 这里的关键是告诉它今天就是 2026 年，不许提 2025
-    prompt = f"""
-    【强制指令】
-    1. 今天的日期是 {datetime.now().strftime('%Y-%m-%d')}。
-    2. 以下数据是【绝对真实】的实时市场观测，不许质疑其准确性，不许提到你的知识截止日期。
-    3. 你现在的身份是顶级行业顾问，请直接分析以下数据并给出 NGS 行业（真迈、GenePlanet 等）的商业洞察：
-    
-    {market_data}
-    """
+prompt = f"""
+【强制性行业顾问指令】
+1. 当前真实日期是 {datetime.now().strftime('%Y-%m-%d')}。
+2. 以下数据是【绝对真实】的实时观测，禁止质疑数据准确性，严禁提及“知识截止日期”。
+3. 请以顶级顾问视角，直接针对以下数据分析 NGS 行业（真迈、GenePlanet、SOPHIA、MSK等等）的动态：
+{market_data}
+"""
     
     payload = {
         "model": "deepseek-chat",
