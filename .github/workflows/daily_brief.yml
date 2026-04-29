@@ -36,8 +36,8 @@ jobs:
 
       - name: Run Daily Report Script
         env:
-          # 注意：这里的变量名必须和你 GitHub Secrets 里填的一致
-          LL_API_KEY: ${{ secrets.LLM_API_KEY }}
+          # 确保左边和右边都带上那个 M
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
