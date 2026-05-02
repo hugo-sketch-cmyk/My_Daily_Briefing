@@ -112,10 +112,13 @@ def send_feishu_card(summary, market_data):
     requests.post(webhook, json=card)
 
 # 4. 保存为 Obsidian 笔记（增加 LatAm 标签）
+# 修改 save_for_obsidian 函数
 def save_for_obsidian(market_data, summary):
-    folder = "00_Briefings" # 对应新 Vault 路径
+    folder = "00_Briefings" # 对齐新 Vault 文件夹
     if not os.path.exists(folder): os.makedirs(folder)
     date_str = datetime.now().strftime('%Y-%m-%d')
+    
+    # 增加元数据以便 AI 进行 RAG 检索
     content = f"""---
 tags: #Briefing #LatAm #Investment #GENTODOS #Policy_Audit
 date: {date_str}
@@ -129,7 +132,7 @@ source_verified: true
 **核查基准数据**:
 {market_data}
 """
-    with open(f"{folder}/{date_str}.md", "w", encoding="utf-8") as f:
+    with open(f"{folder}/{date_str}.md", "w", encoding="utf-8") as f: 
         f.write(content)
 
 # 5. 归档到飞书多维表格
