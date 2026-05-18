@@ -43,14 +43,9 @@ jobs:
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
         
-        # 强制把代码生成的 00_Briefings/Notes 文件夹加入暂存区
-        git add 00_Briefings/Notes/
+        # 🎯 核心修正：只添加标准的 Notes 文件夹
+        git add Notes/
         
-        # 提交文件，如果没变化则平稳跳过不报错
         git commit -m "vault backup: $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
-        
-        # 关键对齐：先拉取并自动合并云端变更（变基模式），防止 Non-fast-forward 报错
         git pull origin main --rebase || echo "No remote changes to rebase"
-        
-        # 强力推回主分支
         git push origin main
