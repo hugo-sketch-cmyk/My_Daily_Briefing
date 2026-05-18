@@ -1,54 +1,56 @@
-name: Consultant Daily Briefing
+name: Daily Report Automation
 
 on:
   schedule:
-    # 1. 北京时间 (CST) 08:07 推送 -> 对应 UTC 00:07
-    # 避开 00 分高峰，改为 07 分，通常会准时很多
-    - cron: '7 0 * * *'
-    
-    # 2. 墨西哥时间 (CST) 08:13 推送 -> 对应 UTC 14:13
-    # 避开 00 分高峰，改为 13 分
-    - cron: '13 14 * * *'
-    
-  workflow_dispatch: # 保留手动点击按钮触发的功能
+    # 墨西哥城当地时间早上 08:00 触发（对应 UTC 14:00）
+    - cron: '0 14 * * *'
+  workflow_dispatch: # 支持手动点击测试
+
+# 🔑 核心修复点 1：强制给虚拟机注入最高的仓库写入权限，无视过期的 Token
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
-    # 强制开启 Node 24 模式，彻底消灭黄色警告
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # 获取全部历史，彻底防止分支冲突拒推
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests yfinance
+    - name: Install dependencies
+      run: |
+        pip install requests yfinance
 
-      - name: Run Daily Report Script
-        env:
-          # 确保左边和右边都带上那个 M
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
-          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
-          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
-          FEISHU_APP_TOKEN: ${{ secrets.FEISHU_APP_TOKEN }}
-        run: python daily_report.py
+    - name: Run Daily Report
+      env:
+        LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+        FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+        FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+        FEISHU_APP_TOKEN: ${{ secrets.FEISHU_APP_TOKEN }}
+      run: python daily_report.py
 
-      - name: Commit and Push to Repository
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add Notes/*.md
-          # 即使没有新文件也顺利结束，不报错
-          git commit -m "vault backup: $(date +'%Y-%m-%d %H:%M:%S')" || exit 0
-          git push
+    # 🔑 核心修复点 2：防冲突、自对齐路径的自动推送模块
+    - name: Commit & Push Changes
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        
+        # 强制把代码生成的 00_Briefings/Notes 文件夹加入暂存区
+        git add 00_Briefings/Notes/
+        
+        # 提交文件，如果没变化则平稳跳过不报错
+        git commit -m "vault backup: $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+        
+        # 关键对齐：先拉取并自动合并云端变更（变基模式），防止 Non-fast-forward 报错
+        git pull origin main --rebase || echo "No remote changes to rebase"
+        
+        # 强力推回主分支
+        git push origin main
