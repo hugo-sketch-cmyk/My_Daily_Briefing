@@ -110,8 +110,8 @@ def send_feishu_card(summary, market_data):
 # 4. 保存为 Obsidian 笔记（增加 LatAm 标签）
 # 修改 save_for_obsidian 函数
 def save_for_obsidian(market_data, summary):
-    # 🎯 傻瓜式对齐：直接硬编码为您侧边栏的绝对嵌套路径
-    folder = "00_Briefings/Notes" 
+    # 🎯 核心修正：在仓库视角下，直接就是 Notes 文件夹
+    folder = "Notes"  
     if not os.path.exists(folder): os.makedirs(folder)
     date_str = datetime.now().strftime('%Y-%m-%d')
     
@@ -123,6 +123,7 @@ source_verified: true
 # 📅 首席顾问简报 {date_str}
 
 {summary}
+
 ---
 **核查基准数据**:
 {market_data}
